@@ -1,13 +1,14 @@
 <html>
 
 <head>
-<title>Learning WebGL &mdash; lesson 6</title>
+<title>Water on boxes</title>
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
 <script type="text/javascript" src="libs/glMatrix-0.9.5.min.js"></script>
 <script type="text/javascript" src="libs/webgl-utils.js"></script>
 
 <script type="text/javascript" src="drawingData.js"></script>
+<script type="text/javascript" src="calculations.js"></script>
 <script type="text/javascript" src="utils.js"></script>
 
 <script id="shader-fs" type="x-shader/x-fragment">
@@ -65,6 +66,31 @@
 
     var SOLID_TEX_IMAGE_PATH = "res/solid.gif";
     var WATER_TEX_IMAGE_PATH = "res/water.jpg";
+
+    var solidBoxes = [3, 1, 0, 3, 1, 4, 1, 2];
+    var waterBoxes = [0, 0, 0, 0, 2, 0, 1, 0];
+    var x0 = initialXShift(solidBoxes);
+    var y0 = initialYShift(solidBoxes);
+
+    function updateBoxes() {
+        var inputElem = document.getElementById("boxes-input");
+        var inputText = inputElem.value.replace(/ /g, "");
+        var pattern = /^\[(\d+,)*(\d+)+\]$/;
+        if (pattern.test(inputText)) {
+            var boxes = inputText.slice(1, inputText.length - 1).split(",");
+            boxes = boxes.map(function(x) { return parseInt(x); });
+            var water = calculations.calculateWaterVolume(boxes);
+            var xInit = initialXShift(boxes);
+            var yInit = initialYShift(boxes);
+
+            solidBoxes = boxes;
+            waterBoxes = water;
+            x0 = xInit;
+            y0 = yInit;
+        } else {
+            alert("Boxes input format is incorrect. Example of the correct input is [1,2,3]. Note also that at least one box expected");
+        }
+    }
 
     function initGL(canvas) {
         try {
@@ -332,13 +358,13 @@
         return -1 * maxValue * BOX_HEIGHT / 2;
     }
 
-    function draw(solidBoxes, waterBoxes, x0, y0) {
-        requestAnimFrame(function() { draw(solidBoxes, waterBoxes, x0, y0); } );
+    function draw() {
+        requestAnimFrame(draw);
         drawScene(solidBoxes, waterBoxes, x0, y0);
     }
 
     function webGLStart() {
-        var canvas = document.getElementById("lesson06-canvas");
+        var canvas = document.getElementById("main-canvas");
         initGL(canvas);
         initShaders();
         initBuffers();
@@ -350,25 +376,30 @@
 
         document.onkeydown = handleKeys;
 
-        var solidBoxes = [3, 1, 0, 3, 1, 4, 1, 2];
-        var waterBoxes = [0, 0, 0, 0, 2, 0, 1, 0];
-        var x0 = initialXShift(solidBoxes);
-        var y0 = initialYShift(solidBoxes);
-
-        draw(solidBoxes, waterBoxes, x0, y0);
+        draw();
     }
 
 </script>
 
 </head>
 <body onload="webGLStart();">
-    <canvas id="lesson06-canvas" style="border: none;" width="500" height="500"></canvas>
 
-    <h2>Controls:</h2>
-    <ul>
-        <li><code>Page Up</code>/<code>Page Down</code> to zoom out/in
-        <li>Cursor keys: make the cube rotate
-    </ul>
+    <div id = "container" style = "width:100%">
+        <div id ="left" style = "float:left; width: 25%;">
+            <h3>Set boxes:</h3>
+            <input id="boxes-input" type="text" name="boxes" value="[3, 1, 0, 3, 1, 4, 1, 2]">
+            <button onclick="updateBoxes()">Draw</button>
+        </div>
+        <div id = "right" style = "float:left; width: 25%;">
+            <h3>Controls:</h3>
+            <ul>
+                <li><code>Page Up</code>/<code>Page Down</code> to zoom out/in
+                <li>Cursor keys: make the cube rotate
+            </ul>
+        </div>
+    </div>
+
+    <canvas id="main-canvas" style="border: none;" width="800" height="600"></canvas>
 </body>
 
 </html>
