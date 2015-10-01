@@ -8,6 +8,7 @@
 <script type="text/javascript" src="libs/webgl-utils.js"></script>
 
 <script type="text/javascript" src="drawingData.js"></script>
+<script type="text/javascript" src="utils.js"></script>
 
 <script id="shader-fs" type="x-shader/x-fragment">
     precision mediump float;
@@ -49,10 +50,12 @@
     var mvMatrixStack = [];
     var pMatrix = mat4.create();
 
-    var xSpeed = 0;
-    var ySpeed = 0;
+    var xAngle = 0;
+    var yAngle = 0;
 
-    var z = -5.0;
+    var zoom = -25.0;
+    var xPos = 0.0;
+    var yPos = 0.0;
 
     var cubeVertexPositionBuffer;
     var cubeTextureCoordBuffer;
@@ -192,10 +195,6 @@
         gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
     }
 
-    function degToRad(degrees) {
-        return degrees * Math.PI / 180;
-    }
-
     function initBuffers() {
         cubeVertexPositionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
@@ -230,15 +229,20 @@
         mvPopMatrix();
     }
 
+    function initialXShift (boxes) {
+        return -1 * boxes.length * BOX_WIDTH / 2;
+    }
+
     function drawBoxes (boxes, yShifts) {
         if (boxes.length != yShifts.length) {
             throw "drawBoxes: invalid arguments";
         }
+        var xInit = initialXShift(boxes);
         for (var i = 0; i < boxes.length; ++i) {
             var boxesInColumn = boxes[i];
             var yInit = yShifts[i] * BOX_HEIGHT;
             for (var j = 0; j < boxesInColumn; ++j) {
-                drawBox(i * BOX_WIDTH, yInit + j * BOX_HEIGHT, 0, shaderProgram);
+                drawBox(xInit + i * BOX_WIDTH, yInit + j * BOX_HEIGHT, 0, shaderProgram);
             }
         }
     }
@@ -281,10 +285,10 @@
 
         mat4.identity(mvMatrix);
 
-        mat4.translate(mvMatrix, [0.0, 0.0, z]);
+        mat4.translate(mvMatrix, [xPos, yPos, zoom]);
 
-        mat4.rotate(mvMatrix, degToRad(xSpeed), [1, 0, 0]);
-        mat4.rotate(mvMatrix, degToRad(ySpeed), [0, 1, 0]);
+        mat4.rotate(mvMatrix, utils.degToRad(xAngle), [1, 0, 0]);
+        mat4.rotate(mvMatrix, utils.degToRad(yAngle), [0, 1, 0]);
 
         // Bind texture coords buffer
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeTextureCoordBuffer);
@@ -303,29 +307,35 @@
 
     function handleKeys(event) {
         var pressedKeyCode = event.keyCode
-        if (pressedKeyCode == 33) {
-            // Page Up
-            z -= 1;
+        if (pressedKeyCode == utils.KEY_Z) {
+            zoom -= 1;
         }
-        if (pressedKeyCode == 34) {
-            // Page Down
-            z += 1;
+        if (pressedKeyCode == utils.KEY_X) {
+            zoom += 1;
         }
-        if (pressedKeyCode == 37) {
-            // Left cursor key
-            ySpeed -= 10;
+        if (pressedKeyCode == utils.KEY_A) {
+            yAngle -= 10;
         }
-        if (pressedKeyCode == 39) {
-            // Right cursor key
-            ySpeed += 10;
+        if (pressedKeyCode == utils.KEY_D) {
+            yAngle += 10;
         }
-        if (pressedKeyCode == 38) {
-            // Up cursor key
-            xSpeed -= 10;
+        if (pressedKeyCode == utils.KEY_W) {
+            xAngle -= 10;
         }
-        if (pressedKeyCode == 40) {
-            // Down cursor key
-            xSpeed += 10;
+        if (pressedKeyCode == utils.KEY_S) {
+            xAngle += 10;
+        }
+        if (pressedKeyCode == utils.KEY_L) {
+            xPos -= 1;
+        }
+        if (pressedKeyCode == utils.KEY_J) {
+            xPos += 1;
+        }
+        if (pressedKeyCode == utils.KEY_I) {
+            yPos -= 1;
+        }
+        if (pressedKeyCode == utils.KEY_K) {
+            yPos += 1;
         }
     }
 
