@@ -53,9 +53,11 @@
     var xAngle = 0;
     var yAngle = 0;
 
-    var zoom = -25.0;
     var xPos = 0.0;
     var yPos = 0.0;
+
+    var PERSPEVTIVE_ANGLE_DEG = 45;
+    var PERSPEVTIVE_END = 100;
 
     var cubeVertexPositionBuffer;
     var cubeTextureCoordBuffer;
@@ -71,6 +73,21 @@
     var waterBoxes = [0, 0, 0, 0, 2, 0, 1, 0];
     var x0 = initialXShift(solidBoxes);
     var y0 = initialYShift(solidBoxes);
+    var zoom = initialZShift(solidBoxes);
+
+    function initialXShift (boxes) {
+        return -1 * boxes.length * BOX_WIDTH / 2;
+    }
+
+    function initialYShift (boxes) {
+        var maxValue = Math.max.apply(null, boxes);
+        return -1 * maxValue * BOX_HEIGHT / 2;
+    }
+
+    function initialZShift (boxes) {
+        var maxValue = Math.max.apply(null, boxes);
+        return -1 * maxValue * BOX_HEIGHT / (2 * Math.tan(utils.degToRad(PERSPEVTIVE_ANGLE_DEG / 4)));
+    }
 
     function updateBoxes() {
         var inputElem = document.getElementById("boxes-input");
@@ -82,11 +99,16 @@
             var water = calculations.calculateWaterVolume(boxes);
             var xInit = initialXShift(boxes);
             var yInit = initialYShift(boxes);
+            var z = initialZShift(boxes);
+            if (Math.abs(z) >= PERSPEVTIVE_END) {
+                z = -1 * PERSPEVTIVE_END;
+            }
 
-            solidBoxes = boxes;
-            waterBoxes = water;
             x0 = xInit;
             y0 = yInit;
+            zoom = z;
+            solidBoxes = boxes;
+            waterBoxes = water;
         } else {
             alert("Boxes input format is incorrect. Example of the correct input is [1,2,3]. Note also that at least one box expected");
         }
@@ -291,7 +313,7 @@
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+        mat4.perspective(PERSPEVTIVE_ANGLE_DEG, gl.viewportWidth / gl.viewportHeight, 0.1, PERSPEVTIVE_END, pMatrix);
 
         mat4.identity(mvMatrix);
 
@@ -347,15 +369,6 @@
         if (pressedKeyCode == utils.KEY_K) {
             yPos += 1;
         }
-    }
-
-    function initialXShift (boxes) {
-        return -1 * boxes.length * BOX_WIDTH / 2;
-    }
-
-    function initialYShift (boxes) {
-        var maxValue = Math.max.apply(null, boxes);
-        return -1 * maxValue * BOX_HEIGHT / 2;
     }
 
     function draw() {
