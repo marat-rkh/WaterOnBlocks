@@ -86,7 +86,10 @@
 
     function initialZShift (boxes) {
         var maxValue = Math.max.apply(null, boxes);
-        return -1 * maxValue * BOX_HEIGHT / (2 * Math.tan(utils.degToRad(PERSPEVTIVE_ANGLE_DEG / 4)));
+        var denominator = 2 * Math.tan(utils.degToRad(PERSPEVTIVE_ANGLE_DEG / 4));
+        var zoomByY = -1 * maxValue * BOX_HEIGHT / denominator;
+        var zoomByX = -1 * boxes.length * BOX_WIDTH / denominator;
+        return Math.min(zoomByX, zoomByY);
     }
 
     function updateBoxes() {
