@@ -47,7 +47,6 @@
     var waterBoxTexture;
 
     var mvMatrix = mat4.create();
-    var mvMatrixStack = [];
     var pMatrix = mat4.create();
 
     var xAngle = 0;
@@ -75,7 +74,8 @@
         } catch (e) {
         }
         if (!gl) {
-            alert("Could not initialise WebGL, sorry :-(");
+            alert("Could not initialise WebGL");
+            throw "Could not initialise WebGL";
         }
     }
 
@@ -176,20 +176,6 @@
         waterBoxTexture = createTexture(WATER_TEX_IMAGE_PATH);
     }
 
-    function mvPushMatrix() {
-        var copy = mat4.create();
-        mat4.set(mvMatrix, copy);
-        mvMatrixStack.push(copy);
-    }
-
-    function mvPopMatrix() {
-        if (mvMatrixStack.length == 0) {
-            throw "Invalid popMatrix!";
-        }
-        mvMatrix = mvMatrixStack.pop();
-    }
-
-
     function setMatrixUniforms(shaderProgram) {
         gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
         gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
@@ -211,7 +197,9 @@
     }
 
     function drawBox(xShift, yShift, zShift, shaderProgram) {
-        mvPushMatrix();
+        // Copy mv matrix
+        var mvMatrixCopy = mat4.create();
+        mat4.set(mvMatrix, mvMatrixCopy);
         // Bind vertices buffer
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
         gl.vertexAttribPointer(
@@ -226,7 +214,8 @@
         // Apply translation matrices and draw column
         setMatrixUniforms(shaderProgram);
         gl.drawElements(gl.TRIANGLES, drawingData.CUBE_VERTEX_INDICES_NUM_OF_ITEMS, gl.UNSIGNED_SHORT, 0);
-        mvPopMatrix();
+        // Restore mv matrix
+        mvMatrix = mvMatrixCopy;
     }
 
     function initialXShift (boxes) {
