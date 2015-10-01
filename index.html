@@ -340,10 +340,10 @@
     function handleKeys(event) {
         var pressedKeyCode = event.keyCode
         if (pressedKeyCode == utils.KEY_Z) {
-            zoom -= 1;
+            zoom -= 0.5;
         }
         if (pressedKeyCode == utils.KEY_X) {
-            zoom += 1;
+            zoom += 0.5;
         }
         if (pressedKeyCode == utils.KEY_A) {
             yAngle -= 10;
@@ -358,16 +358,16 @@
             xAngle += 10;
         }
         if (pressedKeyCode == utils.KEY_L) {
-            xPos -= 1;
+            xPos -= 0.3;
         }
         if (pressedKeyCode == utils.KEY_J) {
-            xPos += 1;
+            xPos += 0.3;
         }
         if (pressedKeyCode == utils.KEY_I) {
-            yPos -= 1;
+            yPos -= 0.3;
         }
         if (pressedKeyCode == utils.KEY_K) {
-            yPos += 1;
+            yPos += 0.3;
         }
     }
 
