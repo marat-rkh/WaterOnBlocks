@@ -218,25 +218,20 @@
         mvMatrix = mvMatrixCopy;
     }
 
-    function initialXShift (boxes) {
-        return -1 * boxes.length * BOX_WIDTH / 2;
-    }
-
-    function drawBoxes (boxes, yShifts) {
+    function drawBoxes (boxes, x0, y0, yShifts) {
         if (boxes.length != yShifts.length) {
             throw "drawBoxes: invalid arguments";
         }
-        var xInit = initialXShift(boxes);
         for (var i = 0; i < boxes.length; ++i) {
             var boxesInColumn = boxes[i];
-            var yInit = yShifts[i] * BOX_HEIGHT;
+            var yInit = y0 + yShifts[i] * BOX_HEIGHT;
             for (var j = 0; j < boxesInColumn; ++j) {
-                drawBox(xInit + i * BOX_WIDTH, yInit + j * BOX_HEIGHT, 0, shaderProgram);
+                drawBox(x0 + i * BOX_WIDTH, yInit + j * BOX_HEIGHT, 0, shaderProgram);
             }
         }
     }
 
-    function drawSolidBoxes(solidBoxes) {
+    function drawSolidBoxes(solidBoxes, x0, y0) {
         // Bind textures
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, solidBoxTexture);
@@ -246,10 +241,10 @@
         for (var i = 0; i < solidBoxes.length; ++i) {
             yShifts[i] = 0;
         };
-        drawBoxes(solidBoxes, yShifts);
+        drawBoxes(solidBoxes, x0, y0, yShifts);
     }
 
-    function drawWaterBoxes(waterBoxes, solidBoxes) {
+    function drawWaterBoxes(waterBoxes, solidBoxes, x0, y0) {
         // Bind textures
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, waterBoxTexture);
@@ -259,14 +254,14 @@
         gl.enable(gl.BLEND);
         gl.depthMask(false);
 
-        drawBoxes(waterBoxes, solidBoxes);
+        drawBoxes(waterBoxes, x0, y0, solidBoxes);
 
         // Restore opaque objects drawing mode
         gl.disable(gl.BLEND);
         gl.depthMask(true);
     }
 
-    function drawScene(solidBoxes, waterBoxes) {        
+    function drawScene(solidBoxes, waterBoxes, x0, y0) {        
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -290,8 +285,8 @@
         // Bind elements buffer
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
 
-        drawSolidBoxes(solidBoxes);
-        drawWaterBoxes(waterBoxes, solidBoxes);
+        drawSolidBoxes(solidBoxes, x0, y0);
+        drawWaterBoxes(waterBoxes, solidBoxes, x0, y0);
     }
 
     function handleKeys(event) {
@@ -328,9 +323,18 @@
         }
     }
 
-    function draw(solidBoxes, waterBoxes) {
-        requestAnimFrame(function() { draw(solidBoxes, waterBoxes); } );
-        drawScene(solidBoxes, waterBoxes);
+    function initialXShift (boxes) {
+        return -1 * boxes.length * BOX_WIDTH / 2;
+    }
+
+    function initialYShift (boxes) {
+        var maxValue = Math.max.apply(null, boxes);
+        return -1 * maxValue * BOX_HEIGHT / 2;
+    }
+
+    function draw(solidBoxes, waterBoxes, x0, y0) {
+        requestAnimFrame(function() { draw(solidBoxes, waterBoxes, x0, y0); } );
+        drawScene(solidBoxes, waterBoxes, x0, y0);
     }
 
     function webGLStart() {
@@ -348,7 +352,10 @@
 
         var solidBoxes = [3, 1, 0, 3, 1, 4, 1, 2];
         var waterBoxes = [0, 0, 0, 0, 2, 0, 1, 0];
-        draw(solidBoxes, waterBoxes);
+        var x0 = initialXShift(solidBoxes);
+        var y0 = initialYShift(solidBoxes);
+
+        draw(solidBoxes, waterBoxes, x0, y0);
     }
 
 </script>
