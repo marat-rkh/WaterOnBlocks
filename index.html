@@ -1,0 +1,365 @@
+<html>
+
+<head>
+<title>Learning WebGL &mdash; lesson 6</title>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+<script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+<script type="text/javascript" src="webgl-utils.js"></script>
+
+<script type="text/javascript" src="drawingData.js"></script>
+
+<script id="shader-fs" type="x-shader/x-fragment">
+    precision mediump float;
+
+    varying vec2 vTextureCoord;
+
+    uniform sampler2D uSampler;
+
+    void main(void) {
+        vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+        gl_FragColor = vec4(textureColor.rgb, textureColor.a);
+    }
+</script>
+
+<script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec2 aTextureCoord;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+
+    varying vec2 vTextureCoord;
+
+    void main(void) {
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        vTextureCoord = aTextureCoord;
+    }
+</script>
+
+<script type="text/javascript">
+
+    var gl;
+    var shaderProgram;
+
+    var solidBoxTexture;
+    var waterBoxTexture;
+
+    var mvMatrix = mat4.create();
+    var mvMatrixStack = [];
+    var pMatrix = mat4.create();
+
+    var xSpeed = 0;
+    var ySpeed = 0;
+
+    var z = -5.0;
+
+    var cubeVertexPositionBuffer;
+    var cubeTextureCoordBuffer;
+    var cubeVertexIndexBuffer;
+
+    var BOX_HEIGHT = 1;
+    var BOX_WIDTH = 1;
+
+    function initGL(canvas) {
+        try {
+            gl = canvas.getContext("experimental-webgl");
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+        } catch (e) {
+        }
+        if (!gl) {
+            alert("Could not initialise WebGL, sorry :-(");
+        }
+    }
+
+    function getShader(gl, id) {
+        var shaderScript = document.getElementById(id);
+        if (!shaderScript) {
+            return null;
+        }
+
+        var str = "";
+        var k = shaderScript.firstChild;
+        while (k) {
+            if (k.nodeType == 3) {
+                str += k.textContent;
+            }
+            k = k.nextSibling;
+        }
+
+        var shader;
+        if (shaderScript.type == "x-shader/x-fragment") {
+            shader = gl.createShader(gl.FRAGMENT_SHADER);
+        } else if (shaderScript.type == "x-shader/x-vertex") {
+            shader = gl.createShader(gl.VERTEX_SHADER);
+        } else {
+            return null;
+        }
+
+        gl.shaderSource(shader, str);
+        gl.compileShader(shader);
+
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            alert(gl.getShaderInfoLog(shader));
+            return null;
+        }
+
+        return shader;
+    }
+
+    function createShaderProgram (fragShaderName, vertShaderName) {
+        var fragmentShader = getShader(gl, fragShaderName);
+        var vertexShader = getShader(gl, vertShaderName);
+
+        var shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            alert("Could not initialise shaders");
+            throw "Could not initialise shaders";
+        }
+        return shaderProgram;
+    }
+
+    function initShaders() {
+        shaderProgram = createShaderProgram("shader-fs", "shader-vs");
+
+        gl.useProgram(shaderProgram);
+
+        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+        shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
+        gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
+
+        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+        shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
+    }
+
+
+    function handleLoadedTexture(texture) {
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    function createTexture(imagePath) {
+        var textureImage = new Image();
+
+        var texture = gl.createTexture();
+        texture.image = textureImage;
+
+        textureImage.onload = function () {
+            handleLoadedTexture(texture)
+        }
+        textureImage.src = imagePath;
+        return texture;
+    }
+
+    function initTextures() {
+        solidBoxTexture = createTexture("solid.gif");
+        waterBoxTexture = createTexture("water.jpg");
+    }
+
+    function mvPushMatrix() {
+        var copy = mat4.create();
+        mat4.set(mvMatrix, copy);
+        mvMatrixStack.push(copy);
+    }
+
+    function mvPopMatrix() {
+        if (mvMatrixStack.length == 0) {
+            throw "Invalid popMatrix!";
+        }
+        mvMatrix = mvMatrixStack.pop();
+    }
+
+
+    function setMatrixUniforms(shaderProgram) {
+        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+    }
+
+    function degToRad(degrees) {
+        return degrees * Math.PI / 180;
+    }
+
+    function initBuffers() {
+        cubeVertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
+        vertices = drawingData.generateCubeVertices(BOX_WIDTH, BOX_HEIGHT);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+        cubeTextureCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, cubeTextureCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(drawingData.TEXTURE_COORDS), gl.STATIC_DRAW);
+
+        cubeVertexIndexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(drawingData.CUBE_VERTEX_INDICES), gl.STATIC_DRAW);
+    }
+
+    function drawBox(xShift, yShift, zShift, shaderProgram) {
+        mvPushMatrix();
+        // Bind vertices buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
+        gl.vertexAttribPointer(
+            shaderProgram.vertexPositionAttribute, 
+            drawingData.CUBE_VERTICES_ITEM_SIZE, 
+            gl.FLOAT, false, 0, 0
+        );
+
+        // Make appropriate translation
+        mat4.translate(mvMatrix, [xShift, yShift, zShift]);
+
+        // Apply translation matrices and draw column
+        setMatrixUniforms(shaderProgram);
+        gl.drawElements(gl.TRIANGLES, drawingData.CUBE_VERTEX_INDICES_NUM_OF_ITEMS, gl.UNSIGNED_SHORT, 0);
+        mvPopMatrix();
+    }
+
+    function drawBoxes (boxes, yShifts) {
+        if (boxes.length != yShifts.length) {
+            throw "drawBoxes: invalid arguments";
+        }
+        for (var i = 0; i < boxes.length; ++i) {
+            var boxesInColumn = boxes[i];
+            var yInit = yShifts[i] * BOX_HEIGHT;
+            for (var j = 0; j < boxesInColumn; ++j) {
+                drawBox(i * BOX_WIDTH, yInit + j * BOX_HEIGHT, 0, shaderProgram);
+            }
+        }
+    }
+
+    function drawSolidBoxes(solidBoxes) {
+        // Bind textures
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, solidBoxTexture);
+        gl.uniform1i(shaderProgram.samplerUniform, 0);
+
+        var yShifts = new Array(solidBoxes.length);
+        for (var i = 0; i < solidBoxes.length; ++i) {
+            yShifts[i] = 0;
+        };
+        drawBoxes(solidBoxes, yShifts);
+    }
+
+    function drawWaterBoxes(waterBoxes, solidBoxes) {
+        // Bind textures
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, waterBoxTexture);
+        gl.uniform1i(shaderProgram.samplerUniform, 1);
+
+        // Set up for transperent objects drawing
+        gl.enable(gl.BLEND);
+        gl.depthMask(false);
+
+        drawBoxes(waterBoxes, solidBoxes);
+
+        // Restore opaque objects drawing mode
+        gl.disable(gl.BLEND);
+        gl.depthMask(true);
+    }
+
+    function drawScene(solidBoxes, waterBoxes) {        
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+
+        mat4.identity(mvMatrix);
+
+        mat4.translate(mvMatrix, [0.0, 0.0, z]);
+
+        mat4.rotate(mvMatrix, degToRad(xSpeed), [1, 0, 0]);
+        mat4.rotate(mvMatrix, degToRad(ySpeed), [0, 1, 0]);
+
+        // Bind texture coords buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, cubeTextureCoordBuffer);
+        gl.vertexAttribPointer(
+            shaderProgram.textureCoordAttribute, 
+            drawingData.CUBE_TEX_COORDS_ITEM_SIZE, 
+            gl.FLOAT, false, 0, 0
+        );
+
+        // Bind elements buffer
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+
+        drawSolidBoxes(solidBoxes);
+        drawWaterBoxes(waterBoxes, solidBoxes);
+    }
+
+    function handleKeys(event) {
+        var pressedKeyCode = event.keyCode
+        if (pressedKeyCode == 33) {
+            // Page Up
+            z -= 1;
+        }
+        if (pressedKeyCode == 34) {
+            // Page Down
+            z += 1;
+        }
+        if (pressedKeyCode == 37) {
+            // Left cursor key
+            ySpeed -= 10;
+        }
+        if (pressedKeyCode == 39) {
+            // Right cursor key
+            ySpeed += 10;
+        }
+        if (pressedKeyCode == 38) {
+            // Up cursor key
+            xSpeed -= 10;
+        }
+        if (pressedKeyCode == 40) {
+            // Down cursor key
+            xSpeed += 10;
+        }
+    }
+
+    function draw(solidBoxes, waterBoxes) {
+        requestAnimFrame(function() { draw(solidBoxes, waterBoxes); } );
+        drawScene(solidBoxes, waterBoxes);
+    }
+
+    function webGLStart() {
+        var canvas = document.getElementById("lesson06-canvas");
+        initGL(canvas);
+        initShaders();
+        initBuffers();
+        initTextures();
+
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+
+        document.onkeydown = handleKeys;
+
+        var solidBoxes = [3, 1, 0, 3, 1, 4, 1, 2];
+        var waterBoxes = [0, 0, 0, 0, 2, 0, 1, 0];
+        draw(solidBoxes, waterBoxes);
+    }
+
+</script>
+
+</head>
+<body onload="webGLStart();">
+    <canvas id="lesson06-canvas" style="border: none;" width="500" height="500"></canvas>
+
+    <h2>Controls:</h2>
+    <ul>
+        <li><code>Page Up</code>/<code>Page Down</code> to zoom out/in
+        <li>Cursor keys: make the cube rotate
+    </ul>
+</body>
+
+</html>
