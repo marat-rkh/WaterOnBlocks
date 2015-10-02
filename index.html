@@ -125,7 +125,6 @@
         } catch (e) {
         }
         if (!gl) {
-            alert("Could not initialise WebGL");
             throw "Could not initialise WebGL";
         }
     }
@@ -175,7 +174,6 @@
         gl.linkProgram(shaderProgram);
 
         if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-            alert("Could not initialise shaders");
             throw "Could not initialise shaders";
         }
         return shaderProgram;
@@ -380,19 +378,23 @@
     }
 
     function webGLStart() {
-        var canvas = document.getElementById("main-canvas");
-        initGL(canvas);
-        initShaders();
-        initBuffers();
-        initTextures();
+        try {
+            var canvas = document.getElementById("main-canvas");
+            initGL(canvas);
+            initShaders();
+            initBuffers();
+            initTextures();
 
-        gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        gl.enable(gl.DEPTH_TEST);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.enable(gl.DEPTH_TEST);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
 
-        document.onkeydown = handleKeys;
+            document.onkeydown = handleKeys;
 
-        draw();
+            draw();
+        } catch (e) {
+            alert("Error - " + e);
+        }
     }
 
 </script>
@@ -409,8 +411,9 @@
         <div id = "right" style = "float:left; width: 25%;">
             <h3>Controls:</h3>
             <ul>
-                <li><code>Page Up</code>/<code>Page Down</code> to zoom out/in
-                <li>Cursor keys: make the cube rotate
+                <li><code>W,A,S,D</code>  to rotate the scene
+                <li><code>Z,X</code>  to zoom out/in
+                <li><code>I,J,K,L</code>  to move the scene
             </ul>
         </div>
     </div>
